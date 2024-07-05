@@ -1,7 +1,7 @@
-import { GameLoader } from "../loaders/game-loader";
 import { GameState } from "../game/game-state";
 import { action, makeAutoObservable, observable } from "mobx";
 import { EventListener } from "../listeners/event-listener";
+import { AssetManager } from "../game/asset-manager";
 
 export class AppState {
   // Observables for UI
@@ -9,10 +9,11 @@ export class AppState {
   @observable started = false;
   @observable paused = false;
 
-  readonly gameLoader = new GameLoader();
   gameState?: GameState;
 
   private events = new EventListener();
+
+  private assetManager = new AssetManager();
 
   constructor() {
     makeAutoObservable(this);
@@ -21,16 +22,12 @@ export class AppState {
     setTimeout(() => this.loadGame(), 10);
   }
 
-  @action startGame = () => {
-    this.gameState = new GameState(this.gameLoader, this.events);
-    this.started = true;
-  };
+  @action async loadGame() {
+    // Load all game assets first
+    await this.assetManager.load();
 
-  private async loadGame() {
-    this.gameLoader.load(this.onLoad);
-  }
-
-  @action private onLoad = () => {
+    // Once loaded, start the game immediately
+    this.gameState = new GameState(this.assetManager);
     this.loaded = true;
-  };
+  }
 }
