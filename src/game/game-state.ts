@@ -12,6 +12,9 @@ export class GameState {
   private camera = new THREE.PerspectiveCamera();
   private controls: OrbitControls;
 
+  private chestPosition = new THREE.Vector3(-0.3, 2.05, 1.9);
+  private chestLidOffset = new THREE.Vector3(0, 0.4, -0.3);
+
   constructor(private assetManager: AssetManager) {
     // Setup the camera and render pipeline first
     this.setupCamera();
@@ -49,9 +52,20 @@ export class GameState {
   }
 
   private setupObjects() {
-    const level = this.assetManager.models.get("level");
+    const assetManager = this.assetManager;
+
+    const level = assetManager.models.get("level");
     this.scene.add(level);
-    console.log("level", level);
+
+    const chestBody = assetManager.models.get("chest-body");
+    assetManager.applyModelTexture(chestBody, "d1-atlas");
+    chestBody.position.copy(this.chestPosition);
+
+    const chestLid = assetManager.models.get("chest-lid");
+    assetManager.applyModelTexture(chestLid, "d1-atlas");
+    chestLid.position.copy(this.chestPosition).add(this.chestLidOffset);
+
+    this.scene.add(chestBody, chestLid);
   }
 
   private update = () => {
