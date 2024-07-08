@@ -3,8 +3,11 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 import { RenderPipeline } from "./render-pipeline";
 import { AssetManager } from "./asset-manager";
+import { observable } from "mobx";
 
 export class GameState {
+  @observable openingChest = false;
+
   private renderPipeline: RenderPipeline;
   private clock = new THREE.Clock();
 
@@ -23,16 +26,18 @@ export class GameState {
     // Add lights and objects to the scene
     this.setupLights();
     this.setupObjects();
+    this.scene.background = new THREE.Color("#1680AF");
 
+    // Orbit controls while testing
     this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
     this.controls.enableDamping = true;
     this.controls.target.set(0, 1, 0);
 
-    this.scene.background = new THREE.Color("#1680AF");
-
     // Start game
     this.update();
   }
+
+  nextChest() {}
 
   private setupCamera() {
     this.camera.fov = 75;

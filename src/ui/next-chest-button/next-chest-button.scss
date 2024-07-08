@@ -1,0 +1,27 @@
+.next-chest-button {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 50px;
+  color: black;
+  font-size: 22px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.border-image {
+  font-size: 20px;
+  width: 300px;
+  padding: 35px;
+  margin: 2em;
+
+  border: 10px solid transparent;
+  border-image-source: url("/ui/panel-000.png");
+  border-image-slice: 30% fill;
+  border-image-repeat: round;
+  border-image-width: 22px;
+}
