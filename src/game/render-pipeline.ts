@@ -4,11 +4,13 @@ import { GammaCorrectionShader } from "three/examples/jsm/shaders/GammaCorrectio
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
+import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader";
 
 export class RenderPipeline {
   private effectComposer: EffectComposer;
   private renderPass: RenderPass;
   private outlinePass: OutlinePass;
+  private fxaaPass: ShaderPass;
   private renderer: THREE.WebGLRenderer;
 
   constructor(
@@ -53,6 +55,10 @@ export class RenderPipeline {
 
     // This corrects the output from the outline pass for srgbe encoding
     this.effectComposer.addPass(new ShaderPass(GammaCorrectionShader));
+
+    // todo - check out other aa types too
+    // This performs FXAA antialiasing (necessary with pp)
+    this.fxaaPass = new ShaderPass(FXAAShader);
   }
 
   get canvas() {

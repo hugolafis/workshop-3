@@ -9,7 +9,7 @@ export const NextChestButton: React.FC<NextChestButtonProps> = ({
   onClick,
 }) => {
   return (
-    <div className="next-chest-button border-image" onClick={onClick}>
+    <div className="next-chest-button" onClick={onClick}>
       Next chest
     </div>
   );

@@ -8,20 +8,26 @@
   color: black;
   font-size: 22px;
 
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.border-image {
-  font-size: 20px;
+  font-size: 22px;
   width: 300px;
   padding: 35px;
-  margin: 2em;
 
   border: 10px solid transparent;
   border-image-source: url("/ui/panel-000.png");
   border-image-slice: 30% fill;
   border-image-repeat: round;
   border-image-width: 22px;
+
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease-out;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  &:active {
+    font-size: 26px;
+    padding: 35px;
+  }
 }
