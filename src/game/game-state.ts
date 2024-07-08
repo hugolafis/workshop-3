@@ -30,6 +30,7 @@ enum Rarity {
 
 export interface Chest {
   rarity: Rarity;
+  lootObjects: THREE.Object3D[];
 }
 
 export class GameState {
@@ -47,6 +48,8 @@ export class GameState {
   private chestPedestalPosition = new THREE.Vector3(-0.1, 0.65, -1.5);
   private chestLidOffset = new THREE.Vector3(0, 0.4, -0.3);
   private chestDropHeight = 4;
+  private lootPositionZ = 0.45;
+  private lootPositionSide = 1;
 
   private mouseNdc = new THREE.Vector2();
   private raycaster = new THREE.Raycaster();
@@ -83,6 +86,8 @@ export class GameState {
   }
 
   nextChest() {
+    // Cannot generate a new chest whilst current is yet to be opened
+
     // Clear any current chest & loot
     if (this.currentChest) {
       this.currentChest = undefined;
@@ -94,10 +99,19 @@ export class GameState {
     // Generate a new chest & loot
     const rarities = Object.values(Rarity);
     const rarity = rarities[Math.floor(Math.random() * rarities.length)];
+
+    const lootNames = ["coins", "sword-1", "potion-1"];
+    const lootObjects: THREE.Object3D[] = [];
+    lootNames.forEach((name) => {
+      const object = this.assetManager.models.get(name);
+      this.assetManager.applyModelTexture(object, "d1-atlas");
+      lootObjects.push(object);
+    });
+
     const chest: Chest = {
       rarity,
+      lootObjects,
     };
-
     this.currentChest = chest;
 
     // Setup drop animation
@@ -166,15 +180,71 @@ export class GameState {
     this.raycaster.setFromCamera(this.mouseNdc, this.camera);
     const intersects = this.raycaster.intersectObject(this.chest);
     if (intersects.length) {
-      console.log("clicked chest");
       this.openChest();
     }
   };
 
   private openChest() {
-    // Start the chest open anim
     const openAnim = chestOpenAnim(this.chestLid);
+
+    openAnim.onComplete(() => {
+      this.animateLootObjects();
+    });
+
     openAnim.start();
+  }
+
+  private animateLootObjects() {
+    if (!this.currentChest) {
+      return;
+    }
+
+    // Get the objects
+    const leftObject = this.currentChest.lootObjects[0];
+    const midObject = this.currentChest.lootObjects[1];
+    const rightObject = this.currentChest.lootObjects[2];
+
+    // Position them for the start of the animation
+    leftObject.position.copy(this.chest.position);
+    midObject.position.copy(this.chest.position);
+    rightObject.position.copy(this.chest.position);
+
+    // Work out where on the rug they should move to
+    const leftPos = new THREE.Vector3(
+      -this.lootPositionSide,
+      this.getObjectRugYPos(leftObject),
+      this.lootPositionZ
+    );
+    const midPos = new THREE.Vector3(
+      0,
+      this.getObjectRugYPos(midObject),
+      this.lootPositionZ
+    );
+    const rightPos = new THREE.Vector3(
+      this.lootPositionSide,
+      this.getObjectRugYPos(rightObject),
+      this.lootPositionZ
+    );
+
+    // Get the animations for each object
+    const leftAnim = itemRevealAnim(leftObject, leftPos);
+    const midAnim = itemRevealAnim(midObject, midPos);
+    const rightAnim = itemRevealAnim(rightObject, rightPos);
+
+    // Add to scene and play the animations
+    this.scene.add(leftObject, midObject, rightObject);
+    leftAnim.start();
+    midAnim.start();
+    rightAnim.start();
+  }
+
+  private getObjectRugYPos(object: THREE.Object3D) {
+    const bounds = new THREE.Box3().setFromObject(object);
+    const size = bounds.getSize(new THREE.Vector3());
+
+    const gapBetweenRugAndObject = 0.2;
+
+    return size.y / 2 + gapBetweenRugAndObject;
   }
 }
 
@@ -201,4 +271,32 @@ function chestOpenAnim(chestLid: THREE.Object3D) {
   );
 
   return tween;
+}
+
+function itemRevealAnim(item: THREE.Object3D, to: THREE.Vector3) {
+  // Calculate apex of arc
+  const travelVector = to.clone().sub(item.position);
+  const travelLength = travelVector.length();
+  const travelDir = travelVector.normalize();
+
+  const apex = travelDir.multiplyScalar(travelLength * 0.1);
+  apex.y += 2;
+
+  const firstHalf = new TWEEN.Tween(item).to(
+    {
+      position: { x: apex.x, y: apex.y, z: apex.z },
+    },
+    250
+  );
+
+  const secondHalf = new TWEEN.Tween(item).to(
+    {
+      position: { x: to.x, y: to.y, z: to.z },
+    },
+    250
+  );
+
+  firstHalf.chain(secondHalf);
+
+  return firstHalf;
 }
