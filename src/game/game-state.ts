@@ -56,10 +56,12 @@ export class GameState {
     this.setupCamera();
     this.renderPipeline = new RenderPipeline(this.scene, this.camera);
 
-    // Add lights and objects to the scene
     this.setupLights();
-    this.setupObjects();
     this.scene.background = new THREE.Color("#1680AF");
+
+    // Object setup
+    const level = assetManager.models.get("level");
+    this.scene.add(level);
 
     this.chest = assetManager.models.get("chest-body");
     assetManager.applyModelTexture(this.chest, "d1-atlas");
@@ -70,6 +72,15 @@ export class GameState {
     this.chest.position.copy(this.chestPedestalPosition);
     this.chest.add(this.chestLid);
     this.chestLid.position.copy(this.chestLidOffset);
+
+    // testing objects
+
+    const testObject = assetManager.models.get("axe-3");
+    assetManager.applyModelTexture(testObject, "d1-atlas");
+    const bounds = new THREE.Box3().setFromObject(testObject);
+    const size = bounds.getSize(new THREE.Vector3());
+    testObject.position.set(0, size.y / 2 + 0.2, 0.5);
+    this.scene.add(testObject);
 
     // Orbit controls while testing
     this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
@@ -126,13 +137,6 @@ export class GameState {
     const directLight = new THREE.DirectionalLight(undefined, Math.PI);
     directLight.position.copy(new THREE.Vector3(0.75, 1, 0.75).normalize());
     this.scene.add(directLight);
-  }
-
-  private setupObjects() {
-    const assetManager = this.assetManager;
-
-    const level = assetManager.models.get("level");
-    this.scene.add(level);
   }
 
   private update = () => {
