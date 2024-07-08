@@ -40,23 +40,19 @@ export class AssetManager {
     // level
 
     const levelUrl = new URL("/models/lootBoxScene.glb", import.meta.url).href;
-    gltfLoader.load(levelUrl, (gltf) => {
-      this.models.set("level", gltf.scene);
-    });
+    gltfLoader.load(levelUrl, (gltf) => this.models.set("level", gltf.scene));
 
     // chest body
 
     const chestBodyUrl = new URL("/models/chestBody.fbx", import.meta.url).href;
-    fbxLoader.load(chestBodyUrl, (group) => {
-      this.models.set("chest-body", group);
-    });
+    fbxLoader.load(chestBodyUrl, (group) =>
+      this.models.set("chest-body", group)
+    );
 
     // chest lid
 
     const chestLidUrl = new URL("/models/chestLid.fbx", import.meta.url).href;
-    fbxLoader.load(chestLidUrl, (group) => {
-      this.models.set("chest-lid", group);
-    });
+    fbxLoader.load(chestLidUrl, (group) => this.models.set("chest-lid", group));
 
     // coins
 
@@ -94,48 +90,63 @@ export class AssetManager {
       .href;
     fbxLoader.load(axe3Url, (group) => this.models.set("axe-3", group));
 
+    // swords
+
     const sword1Url = new URL("/models/SM_Wep_Cutlass_01.fbx", import.meta.url)
       .href;
+    fbxLoader.load(sword1Url, (group) => this.models.set("sword-1", group));
 
     const sword2Url = new URL(
       "/models/SM_Wep_Ornate_Sword_01.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(sword2Url, (group) => this.models.set("sword-2", group));
 
     const sword3Url = new URL(
       "/models/SM_Wep_Straightsword_01.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(sword3Url, (group) => this.models.set("sword-3", group));
+
+    // hammers
 
     const hammer1Url = new URL(
       "/models/SM_Wep_Hammer_Mace_Spikes_01.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(hammer1Url, (group) => this.models.set("hammer-1", group));
 
     const hammer2Url = new URL(
       "/models/SM_Wep_Hammer_Small_01.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(hammer2Url, (group) => this.models.set("hammer-2", group));
 
-    const spikes1Url = new URL(
+    const hammer3Url = new URL(
       "/models/SM_Wep_Ornate_Spikes_01.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(hammer3Url, (group) => this.models.set("hammer-3", group));
+
+    // shields
 
     const shield1Url = new URL(
       "/models/SM_Wep_Shield_Heater_01.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(shield1Url, (group) => this.models.set("shield-1", group));
 
     const shield2Url = new URL(
       "/models/SM_Wep_Shield_Ornate_02.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(shield2Url, (group) => this.models.set("shield-2", group));
 
     const shield3Url = new URL(
       "/models/SM_Wep_Shield_Plank_01.fbx",
       import.meta.url
     ).href;
+    fbxLoader.load(shield3Url, (group) => this.models.set("shield-3", group));
   }
 
   private loadTextures(textureLoader: THREE.TextureLoader) {

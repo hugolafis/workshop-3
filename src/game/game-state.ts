@@ -73,15 +73,6 @@ export class GameState {
     this.chest.add(this.chestLid);
     this.chestLid.position.copy(this.chestLidOffset);
 
-    // testing objects
-
-    const testObject = assetManager.models.get("axe-3");
-    assetManager.applyModelTexture(testObject, "d1-atlas");
-    const bounds = new THREE.Box3().setFromObject(testObject);
-    const size = bounds.getSize(new THREE.Vector3());
-    testObject.position.set(0, size.y / 2 + 0.2, 0.5);
-    this.scene.add(testObject);
-
     // Orbit controls while testing
     this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
     this.controls.enableDamping = true;
