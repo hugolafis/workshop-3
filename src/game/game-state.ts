@@ -46,6 +46,7 @@ export class GameState {
   private chestLid: THREE.Object3D;
   private chestPedestalPosition = new THREE.Vector3(-0.1, 0.65, -1.5);
   private chestLidOffset = new THREE.Vector3(0, 0.4, -0.3);
+  private chestDropHeight = 4;
 
   private mouseNdc = new THREE.Vector2();
   private raycaster = new THREE.Raycaster();
@@ -69,25 +70,23 @@ export class GameState {
     this.chest.position.copy(this.chestPedestalPosition);
     this.chest.add(this.chestLid);
     this.chestLid.position.copy(this.chestLidOffset);
-    this.scene.add(this.chest);
 
     // Orbit controls while testing
     this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
     this.controls.enableDamping = true;
     this.controls.target.set(0, 1, 0);
 
-    // Listeners
-
     // Start game
     this.update();
   }
 
   nextChest() {
-    console.log("next chest");
-
     // Clear any current chest & loot
     if (this.currentChest) {
       this.currentChest = undefined;
+    } else {
+      // First time - add chest to the scene
+      this.scene.add(this.chest);
     }
 
     // Generate a new chest & loot
@@ -101,11 +100,12 @@ export class GameState {
 
     // Setup drop animation
 
-    this.chest.position.y = 4;
+    this.chest.position.y = this.chestDropHeight;
     const dropAnim = chestDropAnim(this.chest, this.chestPedestalPosition);
     dropAnim.onComplete(() => {
-      // Can now add mouse move listener
+      // Add listeners
       window.addEventListener("mousemove", this.onMouseMove);
+      window.addEventListener("mousedown", this.onMouseClick);
     });
 
     dropAnim.start();
@@ -165,6 +165,22 @@ export class GameState {
       this.renderPipeline.outlineObject(this.chest);
     }
   };
+
+  private onMouseClick = (e: MouseEvent) => {
+    // Determine if clicking on the chest
+    this.raycaster.setFromCamera(this.mouseNdc, this.camera);
+    const intersects = this.raycaster.intersectObject(this.chest);
+    if (intersects.length) {
+      console.log("clicked chest");
+      this.openChest();
+    }
+  };
+
+  private openChest() {
+    // Start the chest open anim
+    const openAnim = chestOpenAnim(this.chestLid);
+    openAnim.start();
+  }
 }
 
 function chestDropAnim(chest: THREE.Object3D, to: THREE.Vector3) {
@@ -176,6 +192,18 @@ function chestDropAnim(chest: THREE.Object3D, to: THREE.Vector3) {
       500
     )
     .easing(TWEEN.Easing.Circular.In);
+
+  return tween;
+}
+
+function chestOpenAnim(chestLid: THREE.Object3D) {
+  // Lid rotates backwards along x axis
+  const tween = new TWEEN.Tween(chestLid).to(
+    {
+      rotation: { x: -Math.PI / 2 },
+    },
+    500
+  );
 
   return tween;
 }
