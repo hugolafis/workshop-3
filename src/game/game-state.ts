@@ -49,9 +49,9 @@ export class GameState {
   private chestLidOffset = new THREE.Vector3(0, 0.4, -0.3);
   private chestDropHeight = 4;
 
-  private lootPosLeft = new THREE.Vector3(-1, 0.2, 0.45);
-  private lootPosMid = new THREE.Vector3(0, 0.2, 0.45);
-  private lootPosRight = new THREE.Vector3(1, 0.2, 0.45);
+  private lootPosLeft = new THREE.Vector3(-1, 0.3, 0.45);
+  private lootPosMid = new THREE.Vector3(0, 0.3, 0.45);
+  private lootPosRight = new THREE.Vector3(1, 0.3, 0.45);
   private lootRevealDuration = 500;
 
   private mouseNdc = new THREE.Vector2();
@@ -92,6 +92,8 @@ export class GameState {
     // Cannot generate a new chest whilst current is yet to be opened
 
     // Clear any current chest & loot
+    this.cleanupCurrentChest();
+
     if (this.currentChest) {
       this.currentChest = undefined;
     } else {
@@ -156,6 +158,18 @@ export class GameState {
 
     TWEEN.update();
 
+    if (this.currentChest) {
+      const elapsed = this.clock.getElapsedTime();
+
+      this.currentChest.lootObjects.forEach((object) => {
+        // Rotate the object
+        object.rotation.y += dt * 0.5;
+
+        // Bob up and down
+        object.position.y += Math.sin(elapsed) * 0.001;
+      });
+    }
+
     this.renderPipeline.render(dt);
   };
 
@@ -188,11 +202,13 @@ export class GameState {
   };
 
   private cleanupCurrentChest() {
-    if (!this.currentChest) {
-      return;
-    }
+    // Close the chest lid
+    this.chestLid.rotation.x = 0;
 
-    // Remove the loot objects
+    // Remove any remaining loot objects
+    this.currentChest?.lootObjects.forEach((object) => {
+      this.scene.remove(object);
+    });
   }
 
   private openChest() {
