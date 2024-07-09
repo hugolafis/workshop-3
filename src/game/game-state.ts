@@ -48,8 +48,11 @@ export class GameState {
   private chestPedestalPosition = new THREE.Vector3(-0.1, 0.65, -1.5);
   private chestLidOffset = new THREE.Vector3(0, 0.4, -0.3);
   private chestDropHeight = 4;
-  private lootPositionZ = 0.45;
-  private lootPositionSide = 1;
+
+  private lootPosLeft = new THREE.Vector3(-1, 0.2, 0.45);
+  private lootPosMid = new THREE.Vector3(0, 0.2, 0.45);
+  private lootPosRight = new THREE.Vector3(1, 0.2, 0.45);
+  private lootRevealDuration = 500;
 
   private mouseNdc = new THREE.Vector2();
   private raycaster = new THREE.Raycaster();
@@ -184,69 +187,106 @@ export class GameState {
     }
   };
 
-  private openChest() {
-    const openAnim = chestOpenAnim(this.chestLid);
-
-    openAnim.onComplete(() => {
-      this.animateLootObjects();
-    });
-
-    openAnim.start();
-  }
-
-  private animateLootObjects() {
+  private cleanupCurrentChest() {
     if (!this.currentChest) {
       return;
     }
 
-    // Get the objects
-    const leftObject = this.currentChest.lootObjects[0];
-    const midObject = this.currentChest.lootObjects[1];
-    const rightObject = this.currentChest.lootObjects[2];
+    // Remove the loot objects
+  }
 
+  private openChest() {
+    if (!this.currentChest) {
+      return;
+    }
+
+    // Get the chest open anim
+    const openDuration = 500;
+    const openAnim = chestOpenAnim(this.chestLid, openDuration);
+
+    // Get the loot reveal anims, delay them a bit so lid is half open when they start
+    const lootAnimDelay = openDuration * 0.5;
+    const lootObjects = this.currentChest.lootObjects;
+    const lootRevealAnims = this.getLootRevealAnims(
+      lootObjects[0],
+      lootObjects[1],
+      lootObjects[2]
+    );
+    lootRevealAnims.forEach((tween) => tween.delay(lootAnimDelay));
+
+    // Loot starts at scale 0, then scales up via another delayed anim
+    lootObjects.forEach((object) => object.scale.set(0, 0, 0));
+    const lootScaleAnims = this.getLootScaleAnims(
+      lootObjects[0],
+      lootObjects[1],
+      lootObjects[2]
+    );
+    lootScaleAnims.forEach((tween) => tween.delay(lootAnimDelay));
+
+    // Add the loot to the scene
+    this.scene.add(...this.currentChest.lootObjects);
+
+    // Start all the anims
+    openAnim.start();
+    lootRevealAnims.forEach((tween) => tween.start());
+    lootScaleAnims.forEach((tween) => tween.start());
+  }
+
+  private getLootRevealAnims(
+    leftObject: THREE.Object3D,
+    midObject: THREE.Object3D,
+    rightObject: THREE.Object3D
+  ) {
     // Position them for the start of the animation
     leftObject.position.copy(this.chest.position);
     midObject.position.copy(this.chest.position);
     rightObject.position.copy(this.chest.position);
 
-    // Work out where on the rug they should move to
-    const leftPos = new THREE.Vector3(
-      -this.lootPositionSide,
-      0.2,
-      this.lootPositionZ
-    );
-    const midPos = new THREE.Vector3(0, 0.2, this.lootPositionZ);
-    const rightPos = new THREE.Vector3(
-      this.lootPositionSide,
-      0.2,
-      this.lootPositionZ
+    // Create a curve path leading to rug pos
+    const leftPath = this.getCurvePathTo(this.chest.position, this.lootPosLeft);
+    const midPath = this.getCurvePathTo(this.chest.position, this.lootPosMid);
+    const rightPath = this.getCurvePathTo(
+      this.chest.position,
+      this.lootPosRight
     );
 
-    // Create a curve leading to rug pos to follow
-    this.getCurvePathTo(this.chest.position, midPos);
+    // Return the animations for each object
+    const leftAnim = followPathAnim(
+      leftObject,
+      leftPath,
+      this.lootRevealDuration
+    );
+    const midAnim = followPathAnim(midObject, midPath, this.lootRevealDuration);
+    const rightAnim = followPathAnim(
+      rightObject,
+      rightPath,
+      this.lootRevealDuration
+    );
 
-    // Get the animations for each object
-    const leftAnim = itemRevealAnim(leftObject, leftPos);
-    const midAnim = itemRevealAnim(midObject, midPos);
-    const rightAnim = itemRevealAnim(rightObject, rightPos);
-
-    // Add to scene and play the animations
-    this.scene.add(leftObject, midObject, rightObject);
-    leftAnim.start();
-    midAnim.start();
-    rightAnim.start();
+    return [leftAnim, midAnim, rightAnim];
   }
 
   private getCurvePathTo(from: THREE.Vector3, to: THREE.Vector3) {
-    // Get the mid point
-    const fromToVector = to.clone().sub(from);
-    const fromToLength = fromToVector.length();
-    const ftHalfLength = fromToLength * 0.5;
-    const fromToDir = fromToVector.normalize();
-    const halfPoint = fromToDir.multiplyScalar(ftHalfLength);
-    halfPoint.y = 2;
+    // Get the mid point between from and to
+    const mid = to.clone().sub(from).multiplyScalar(0.5).add(from);
+    mid.y += 2;
 
-    console.log(from, to, halfPoint);
+    const curve = new THREE.CatmullRomCurve3([from, mid, to]);
+
+    return curve.getPoints(10);
+  }
+
+  private getLootScaleAnims(
+    leftObject: THREE.Object3D,
+    midObject: THREE.Object3D,
+    rightObject: THREE.Object3D
+  ) {
+    const scaleDuration = this.lootRevealDuration * 0.5;
+    const leftAnim = scaleAnim(leftObject, scaleDuration);
+    const midAnim = scaleAnim(midObject, scaleDuration);
+    const rightAnim = scaleAnim(rightObject, scaleDuration);
+
+    return [leftAnim, midAnim, rightAnim];
   }
 }
 
@@ -263,59 +303,58 @@ function chestDropAnim(chest: THREE.Object3D, to: THREE.Vector3) {
   return tween;
 }
 
-function chestOpenAnim(chestLid: THREE.Object3D) {
+function chestOpenAnim(chestLid: THREE.Object3D, duration: number) {
   // Lid rotates backwards along x axis
-  const tween = new TWEEN.Tween(chestLid).to(
-    {
-      rotation: { x: -Math.PI / 2 },
-    },
-    500
-  );
+  const tween = new TWEEN.Tween(chestLid)
+    .to(
+      {
+        rotation: { x: -Math.PI / 1.5 },
+      },
+      duration
+    )
+    .easing(TWEEN.Easing.Bounce.Out);
 
   return tween;
 }
 
-function itemRevealAnim(item: THREE.Object3D, to: THREE.Vector3) {
-  // Calculate apex of arc
-  const travelVector = to.clone().sub(item.position);
-  const travelLength = travelVector.length();
-  const travelDir = travelVector.normalize();
+function followPathAnim(
+  object: THREE.Object3D,
+  path: THREE.Vector3[],
+  duration: number
+) {
+  const stepDuration = duration / path.length;
 
-  const apex = travelDir.multiplyScalar(travelLength * 0.1);
-  apex.y += 2;
-
-  const firstHalf = new TWEEN.Tween(item).to(
-    {
-      position: { x: apex.x, y: apex.y, z: apex.z },
-    },
-    250
-  );
-
-  const secondHalf = new TWEEN.Tween(item).to(
-    {
-      position: { x: to.x, y: to.y, z: to.z },
-    },
-    250
-  );
-
-  firstHalf.chain(secondHalf);
-
-  return firstHalf;
-}
-
-function followPathAnim(object: THREE.Object3D, path: THREE.Vector3[]) {
-  const parentTween = new TWEEN.Tween(object);
-  const maxDuration = 2000;
-  const stepDuration = maxDuration / path.length;
-
+  // Create the tweens for each waypoint
+  const waypointTweens: TWEEN.Tween<THREE.Object3D>[] = [];
   path.forEach((waypoint) => {
-    parentTween.to(
+    const thisTween = new TWEEN.Tween(object).to(
       {
         position: { x: waypoint.x, y: waypoint.y, z: waypoint.z },
       },
       stepDuration
     );
+
+    waypointTweens.push(thisTween);
   });
 
-  return parentTween;
+  // Chain them all together (go backwards so we end up with the first)
+  for (let i = waypointTweens.length - 2; i >= 0; i--) {
+    const thisTween = waypointTweens[i];
+    const prevTween = waypointTweens[i + 1];
+
+    thisTween.chain(prevTween);
+  }
+
+  return waypointTweens[0];
+}
+
+function scaleAnim(object: THREE.Object3D, duration: number) {
+  const tween = new TWEEN.Tween(object).to(
+    {
+      scale: { x: 1, y: 1, z: 1 },
+    },
+    duration
+  );
+
+  return tween;
 }
