@@ -27,8 +27,8 @@ export class AssetManager {
     const fbxLoader = new FBXLoader(this.loadingManager);
     const textureLoader = new THREE.TextureLoader(this.loadingManager);
 
-    this.loadModels(gltfLoader, fbxLoader);
     this.loadTextures(textureLoader);
+    this.loadModels(gltfLoader, fbxLoader);
 
     return new Promise((resolve) => {
       this.loadingManager.onLoad = () => {

@@ -29,6 +29,7 @@ enum Rarity {
 }
 
 export interface Chest {
+  opened: boolean;
   rarity: Rarity;
   lootObjects: THREE.Object3D[];
 }
@@ -75,9 +76,17 @@ export class GameState {
     this.chestLid = assetManager.models.get("chest-lid");
     assetManager.applyModelTexture(this.chestLid, "d1-atlas");
 
-    this.chest.position.copy(this.chestPedestalPosition);
     this.chest.add(this.chestLid);
     this.chestLid.position.copy(this.chestLidOffset);
+
+    // Add to scene out of view to start
+    this.chest.position.copy(this.chestPedestalPosition);
+    this.chest.position.y = 100;
+    this.scene.add(this.chest);
+
+    // Listeners
+    window.addEventListener("mousemove", this.onMouseMove);
+    window.addEventListener("mousedown", this.onMouseClick);
 
     // Orbit controls while testing
     this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
@@ -90,54 +99,33 @@ export class GameState {
 
   nextChest() {
     // Cannot generate a new chest whilst current is yet to be opened
+    if (this.currentChest && !this.currentChest.opened) {
+      return;
+    }
 
     // Clear any current chest & loot
     this.cleanupCurrentChest();
 
-    if (this.currentChest) {
-      this.currentChest = undefined;
-    } else {
-      // First time - add chest to the scene
-      this.scene.add(this.chest);
-    }
-
     // Generate a new chest & loot
-    const rarities = Object.values(Rarity);
-    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-
-    const lootNames = ["coins", "hammer-1", "potion-1"];
-    const lootObjects: THREE.Object3D[] = [];
-    lootNames.forEach((name) => {
-      const object = this.assetManager.models.get(name);
-      this.assetManager.applyModelTexture(object, "d1-atlas");
-      lootObjects.push(object);
-    });
-
-    const chest: Chest = {
-      rarity,
-      lootObjects,
-    };
-    this.currentChest = chest;
+    this.currentChest = this.generateRandomChest();
 
     // Setup drop animation
-
     this.chest.position.y = this.chestDropHeight;
     const dropAnim = chestDropAnim(this.chest, this.chestPedestalPosition);
-    dropAnim.onComplete(() => {
-      // Add listeners
-      window.addEventListener("mousemove", this.onMouseMove);
-      window.addEventListener("mousedown", this.onMouseClick);
+
+    dropAnim.onUpdate(() => {
+      this.camera.lookAt(this.chest.position);
     });
 
     dropAnim.start();
   }
 
   private setupCamera() {
-    this.camera.fov = 75;
+    this.camera.fov = 45;
     this.camera.far = 500;
     this.camera.near = 0.1;
-    this.camera.position.set(0, 5, 6.5);
-    this.camera.lookAt(0, 3, 0);
+    this.camera.position.set(0, 2.65, 6);
+    this.camera.lookAt(-0.1, 1.45, -0.1);
   }
 
   private setupLights() {
@@ -174,30 +162,65 @@ export class GameState {
   };
 
   private onMouseMove = (e: MouseEvent) => {
+    if (!this.currentChest) {
+      return;
+    }
+
     // Set normalised device coords of cursor
     this.mouseNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
     this.mouseNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
-    // Raycast into scene to determine if an interactive item was hit
     this.raycaster.setFromCamera(this.mouseNdc, this.camera);
 
     // Clear any outlines from previous frame
     this.renderPipeline.clearOutlines();
+    document.body.style.cursor = "default";
 
-    // First check intersections against the chest
-    const intersects = this.raycaster.intersectObject(this.chest);
-    if (intersects.length) {
-      // Outline the chest
-      this.renderPipeline.outlineObject(this.chest);
+    // If the chest is yet to be opened, raycast against that
+    if (!this.currentChest.opened) {
+      const intersects = this.raycaster.intersectObject(this.chest);
+      if (intersects.length) {
+        // Outline the chest
+        this.renderPipeline.outlineObject(this.chest);
+        document.body.style.cursor = "pointer";
+      }
+      return;
+    }
+
+    // Otherwise, raycast against remaining loot objects
+    if (this.currentChest.lootObjects.length) {
+      const intersects = this.raycaster.intersectObjects(
+        this.currentChest.lootObjects
+      );
+      if (intersects.length) {
+        const objectHit = intersects[0].object;
+        this.renderPipeline.outlineObject(objectHit);
+        document.body.style.cursor = "pointer";
+      }
     }
   };
 
   private onMouseClick = (e: MouseEvent) => {
-    // Determine if clicking on the chest
     this.raycaster.setFromCamera(this.mouseNdc, this.camera);
-    const intersects = this.raycaster.intersectObject(this.chest);
-    if (intersects.length) {
-      this.openChest();
+
+    // Determine if clicking on the chest
+    if (!this.currentChest?.opened) {
+      const intersects = this.raycaster.intersectObject(this.chest);
+      if (intersects.length) {
+        this.openChest();
+      }
+
+      return;
+    }
+
+    // Determine if clicking on a loot object
+    for (const [index, object] of this.currentChest.lootObjects.entries()) {
+      const intersects = this.raycaster.intersectObject(object);
+      if (intersects.length) {
+        this.pickupLootObject(object, index);
+
+        return;
+      }
     }
   };
 
@@ -209,6 +232,30 @@ export class GameState {
     this.currentChest?.lootObjects.forEach((object) => {
       this.scene.remove(object);
     });
+
+    this.currentChest = undefined;
+  }
+
+  private generateRandomChest(): Chest {
+    const rarities = Object.values(Rarity);
+    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
+
+    // Pick 3 random loot objects
+    const lootObjects: THREE.Object3D[] = [];
+    const lootNames = [...this.assetManager.lootNames];
+    for (let i = 0; i < 3; i++) {
+      const rnd = Math.floor(Math.random() * lootNames.length);
+      const object = this.assetManager.models.get(lootNames[rnd]);
+      this.assetManager.applyModelTexture(object, "d1-atlas");
+      lootObjects.push(object);
+      lootNames.splice(rnd, 1);
+    }
+
+    return {
+      opened: false,
+      rarity,
+      lootObjects,
+    };
   }
 
   private openChest() {
@@ -216,31 +263,31 @@ export class GameState {
       return;
     }
 
+    // Treat as opened immediately to avoid re-triggering open anim
+    this.currentChest.opened = true;
+
     // Get the chest open anim
     const openDuration = 500;
     const openAnim = chestOpenAnim(this.chestLid, openDuration);
 
-    // Get the loot reveal anims, delay them a bit so lid is half open when they start
-    const lootAnimDelay = openDuration * 0.5;
+    // Get the loot reveal anims
     const lootObjects = this.currentChest.lootObjects;
     const lootRevealAnims = this.getLootRevealAnims(
       lootObjects[0],
       lootObjects[1],
       lootObjects[2]
     );
-    lootRevealAnims.forEach((tween) => tween.delay(lootAnimDelay));
 
-    // Loot starts at scale 0, then scales up via another delayed anim
+    // Loot starts at scale 0, then scales up as it's revealed
     lootObjects.forEach((object) => object.scale.set(0, 0, 0));
     const lootScaleAnims = this.getLootScaleAnims(
       lootObjects[0],
       lootObjects[1],
       lootObjects[2]
     );
-    lootScaleAnims.forEach((tween) => tween.delay(lootAnimDelay));
 
     // Add the loot to the scene
-    this.scene.add(...this.currentChest.lootObjects);
+    this.currentChest.lootObjects.forEach((object) => this.scene.add(object));
 
     // Start all the anims
     openAnim.start();
@@ -303,6 +350,12 @@ export class GameState {
     const rightAnim = scaleAnim(rightObject, scaleDuration);
 
     return [leftAnim, midAnim, rightAnim];
+  }
+
+  private pickupLootObject(object: THREE.Object3D, index: number) {
+    // Remove the object
+    this.scene.remove(object);
+    this.currentChest?.lootObjects.splice(index, 1);
   }
 }
 
