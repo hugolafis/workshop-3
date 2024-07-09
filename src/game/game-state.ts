@@ -5,6 +5,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { RenderPipeline } from "./render-pipeline";
 import { AssetManager } from "./asset-manager";
 import { observable } from "mobx";
+import { addGui } from "../utils/utils";
 
 /**
  * Flow:
@@ -64,10 +65,13 @@ export class GameState {
     this.renderPipeline = new RenderPipeline(this.scene, this.camera);
 
     this.setupLights();
-    this.scene.background = new THREE.Color("#1680AF");
+    this.scene.background = new THREE.Color("#262626");
+    this.scene.fog = new THREE.Fog(0xcccccc, 8, 15);
 
     // Object setup
     const level = assetManager.models.get("level");
+    level.castShadow = true;
+    level.receiveShadows = true;
     this.scene.add(level);
 
     this.chest = assetManager.models.get("chest-body");
@@ -129,12 +133,21 @@ export class GameState {
   }
 
   private setupLights() {
-    const ambientLight = new THREE.AmbientLight(undefined, 0.25);
+    const ambientLight = new THREE.AmbientLight(undefined, 0.15);
     this.scene.add(ambientLight);
 
-    const directLight = new THREE.DirectionalLight(undefined, Math.PI);
-    directLight.position.copy(new THREE.Vector3(0.75, 1, 0.75).normalize());
-    this.scene.add(directLight);
+    // const directLight = new THREE.DirectionalLight(undefined, 2);
+    // directLight.position.copy(new THREE.Vector3(0.75, 1, 0.75).normalize());
+    // this.scene.add(directLight);
+
+    //#E7520D
+    const flameLeft = new THREE.PointLight("#D8661F", 1, 100);
+    flameLeft.position.set(-1.62, 3.2, -2.35);
+    this.scene.add(flameLeft);
+
+    const flameRight = new THREE.PointLight("#E7520D", 1, 100);
+    flameRight.position.set(1.62, 3.2, -2.35);
+    this.scene.add(flameRight);
   }
 
   private update = () => {
