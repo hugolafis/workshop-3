@@ -100,7 +100,7 @@ export class GameState {
     const rarities = Object.values(Rarity);
     const rarity = rarities[Math.floor(Math.random() * rarities.length)];
 
-    const lootNames = ["coins", "sword-1", "potion-1"];
+    const lootNames = ["coins", "hammer-1", "potion-1"];
     const lootObjects: THREE.Object3D[] = [];
     lootNames.forEach((name) => {
       const object = this.assetManager.models.get(name);
@@ -212,19 +212,18 @@ export class GameState {
     // Work out where on the rug they should move to
     const leftPos = new THREE.Vector3(
       -this.lootPositionSide,
-      this.getObjectRugYPos(leftObject),
+      0.2,
       this.lootPositionZ
     );
-    const midPos = new THREE.Vector3(
-      0,
-      this.getObjectRugYPos(midObject),
-      this.lootPositionZ
-    );
+    const midPos = new THREE.Vector3(0, 0.2, this.lootPositionZ);
     const rightPos = new THREE.Vector3(
       this.lootPositionSide,
-      this.getObjectRugYPos(rightObject),
+      0.2,
       this.lootPositionZ
     );
+
+    // Create a curve leading to rug pos to follow
+    this.getCurvePathTo(this.chest.position, midPos);
 
     // Get the animations for each object
     const leftAnim = itemRevealAnim(leftObject, leftPos);
@@ -238,13 +237,16 @@ export class GameState {
     rightAnim.start();
   }
 
-  private getObjectRugYPos(object: THREE.Object3D) {
-    const bounds = new THREE.Box3().setFromObject(object);
-    const size = bounds.getSize(new THREE.Vector3());
+  private getCurvePathTo(from: THREE.Vector3, to: THREE.Vector3) {
+    // Get the mid point
+    const fromToVector = to.clone().sub(from);
+    const fromToLength = fromToVector.length();
+    const ftHalfLength = fromToLength * 0.5;
+    const fromToDir = fromToVector.normalize();
+    const halfPoint = fromToDir.multiplyScalar(ftHalfLength);
+    halfPoint.y = 2;
 
-    const gapBetweenRugAndObject = 0.2;
-
-    return size.y / 2 + gapBetweenRugAndObject;
+    console.log(from, to, halfPoint);
   }
 }
 
@@ -299,4 +301,21 @@ function itemRevealAnim(item: THREE.Object3D, to: THREE.Vector3) {
   firstHalf.chain(secondHalf);
 
   return firstHalf;
+}
+
+function followPathAnim(object: THREE.Object3D, path: THREE.Vector3[]) {
+  const parentTween = new TWEEN.Tween(object);
+  const maxDuration = 2000;
+  const stepDuration = maxDuration / path.length;
+
+  path.forEach((waypoint) => {
+    parentTween.to(
+      {
+        position: { x: waypoint.x, y: waypoint.y, z: waypoint.z },
+      },
+      stepDuration
+    );
+  });
+
+  return parentTween;
 }
