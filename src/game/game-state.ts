@@ -70,8 +70,6 @@ export class GameState {
 
     // Object setup
     const level = assetManager.models.get("level");
-    level.castShadow = true;
-    level.receiveShadows = true;
     this.scene.add(level);
 
     this.chest = assetManager.models.get("chest-body");
@@ -125,7 +123,7 @@ export class GameState {
   }
 
   private setupCamera() {
-    this.camera.fov = 45;
+    this.camera.fov = 50;
     this.camera.far = 500;
     this.camera.near = 0.1;
     this.camera.position.set(0, 2.65, 6);
@@ -136,18 +134,21 @@ export class GameState {
     const ambientLight = new THREE.AmbientLight(undefined, 0.15);
     this.scene.add(ambientLight);
 
-    // const directLight = new THREE.DirectionalLight(undefined, 2);
-    // directLight.position.copy(new THREE.Vector3(0.75, 1, 0.75).normalize());
-    // this.scene.add(directLight);
+    const directLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directLight.position.copy(new THREE.Vector3(0.75, 1, 0.75).normalize());
+    this.scene.add(directLight);
 
-    //#E7520D
-    const flameLeft = new THREE.PointLight("#D8661F", 1, 100);
+    const flameColour = new THREE.Color("#f59002").convertSRGBToLinear();
+    const flameLeft = new THREE.PointLight(flameColour, 5, 5);
     flameLeft.position.set(-1.62, 3.2, -2.35);
-    this.scene.add(flameLeft);
 
-    const flameRight = new THREE.PointLight("#E7520D", 1, 100);
+    const flameRight = new THREE.PointLight(flameColour, 5, 5);
     flameRight.position.set(1.62, 3.2, -2.35);
-    this.scene.add(flameRight);
+
+    this.scene.add(flameLeft, flameRight);
+
+    lightFlicker(flameLeft).start();
+    lightFlicker(flameRight).start();
   }
 
   private update = () => {
@@ -437,6 +438,21 @@ function scaleAnim(object: THREE.Object3D, duration: number) {
     },
     duration
   );
+
+  return tween;
+}
+
+function lightFlicker(light: THREE.PointLight) {
+  const tween = new TWEEN.Tween(light)
+    .onEveryStart(() => {
+      // Set a random clamped duration
+      tween.duration(THREE.MathUtils.randFloat(1000, 3000));
+    })
+    .to({
+      intensity: 2,
+    })
+    .repeat(Infinity)
+    .yoyo(true);
 
   return tween;
 }
