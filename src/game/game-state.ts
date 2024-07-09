@@ -1,6 +1,8 @@
 import * as TWEEN from "@tweenjs/tween.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { RectAreaLightHelper } from "three/examples/jsm/helpers/RectAreaLightHelper";
+import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib";
 
 import { RenderPipeline } from "./render-pipeline";
 import { AssetManager } from "./asset-manager";
@@ -50,6 +52,7 @@ export class GameState {
   private chestPedestalPosition = new THREE.Vector3(-0.1, 0.65, -1.5);
   private chestLidOffset = new THREE.Vector3(0, 0.4, -0.3);
   private chestDropHeight = 4;
+  private chestLights: THREE.RectAreaLight[] = [];
 
   private lootPosLeft = new THREE.Vector3(-1, 0.3, 0.45);
   private lootPosMid = new THREE.Vector3(0, 0.3, 0.45);
@@ -86,6 +89,20 @@ export class GameState {
     this.chest.position.y = 100;
     this.scene.add(this.chest);
 
+    // Testing rect light
+    RectAreaLightUniformsLib.init();
+
+    const rectLightDown = new THREE.RectAreaLight(0x00ff00, 3, 1.2, 0.8);
+    rectLightDown.position.y += 0.4;
+    rectLightDown.rotateX(-Math.PI / 2);
+
+    const rectLightUp = new THREE.RectAreaLight(0x00ff00, 2, 1.2, 0.8);
+    rectLightUp.position.y += 0.41;
+    rectLightUp.rotateX(Math.PI / 2);
+
+    this.chest.add(rectLightDown, rectLightUp);
+    this.chestLights.push(rectLightDown, rectLightUp);
+
     // Listeners
     window.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("mousedown", this.onMouseClick);
@@ -110,6 +127,11 @@ export class GameState {
 
     // Generate a new chest & loot
     this.currentChest = this.generateRandomChest();
+
+    // Change chest lights to match rarity
+    this.chestLights.forEach((light) =>
+      light.color.setColorName(this.currentChest?.rarity ?? "white")
+    );
 
     // Setup drop animation
     this.chest.position.y = this.chestDropHeight;
