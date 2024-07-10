@@ -5,6 +5,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 export class AssetManager {
   models = new Map();
   textures = new Map();
+  audio = new Map();
   lootNames: string[] = [];
 
   private loadingManager = new THREE.LoadingManager();
@@ -26,9 +27,11 @@ export class AssetManager {
     const gltfLoader = new GLTFLoader(this.loadingManager);
     const fbxLoader = new FBXLoader(this.loadingManager);
     const textureLoader = new THREE.TextureLoader(this.loadingManager);
+    const audioLoader = new THREE.AudioLoader(this.loadingManager);
 
     this.loadTextures(textureLoader);
     this.loadModels(gltfLoader, fbxLoader);
+    this.loadAudio(audioLoader);
 
     return new Promise((resolve) => {
       this.loadingManager.onLoad = () => {
@@ -188,5 +191,14 @@ export class AssetManager {
     const d1Texture = textureLoader.load(d1Url);
     d1Texture.encoding = THREE.sRGBEncoding;
     this.textures.set("d1-atlas", d1Texture);
+  }
+
+  private loadAudio(audioLoader: THREE.AudioLoader) {
+    const url = new URL(
+      "/audio/Wooden Crate Impact Normal.wav",
+      import.meta.url
+    ).href;
+    // load and put buffer in the map
+    // need the listener to make audio objects in game state
   }
 }

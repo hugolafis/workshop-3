@@ -45,7 +45,7 @@ export class GameState {
 
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera();
-  private controls: OrbitControls;
+  //private controls: OrbitControls;
 
   private chest: THREE.Object3D;
   private chestLid: THREE.Object3D;
@@ -108,9 +108,9 @@ export class GameState {
     window.addEventListener("mousedown", this.onMouseClick);
 
     // Orbit controls while testing
-    this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
-    this.controls.enableDamping = true;
-    this.controls.target.set(0, 1, 0);
+    // this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
+    // this.controls.enableDamping = true;
+    // this.controls.target.set(0, 1, 0);
 
     // Start game
     this.update();
@@ -178,7 +178,7 @@ export class GameState {
 
     const dt = this.clock.getDelta();
 
-    this.controls.update();
+    //this.controls.update();
 
     TWEEN.update();
 
@@ -401,7 +401,7 @@ function chestDropAnim(chest: THREE.Object3D, to: THREE.Vector3) {
       {
         position: { y: to.y },
       },
-      500
+      350
     )
     .easing(TWEEN.Easing.Circular.In);
 
