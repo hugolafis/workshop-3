@@ -31,10 +31,23 @@ enum Rarity {
   LEGENDARY = "orange",
 }
 
+export enum LootType {
+  WEAPON,
+  POTION,
+  SHIELD,
+  GOLD,
+}
+
+interface LootItem {
+  object: THREE.Object3D;
+  type: LootType;
+  rarity: Rarity;
+}
+
 export interface Chest {
   opened: boolean;
   rarity: Rarity;
-  lootObjects: THREE.Object3D[];
+  lootItems: LootItem[];
 }
 
 export class GameState {
@@ -62,11 +75,20 @@ export class GameState {
   private mouseNdc = new THREE.Vector2();
   private raycaster = new THREE.Raycaster();
 
+  private audioListener: THREE.AudioListener;
+  private soundMap = new Map<string, THREE.Audio>();
+
   constructor(private assetManager: AssetManager) {
     // Setup the camera and render pipeline first
     this.setupCamera();
     this.renderPipeline = new RenderPipeline(this.scene, this.camera);
 
+    // Audio
+    this.audioListener = new THREE.AudioListener();
+    this.camera.add(this.audioListener);
+    this.setupAudio();
+
+    // Scene
     this.setupLights();
     this.scene.background = new THREE.Color("#262626");
     this.scene.fog = new THREE.Fog(0xcccccc, 8, 15);
@@ -141,6 +163,10 @@ export class GameState {
       this.camera.lookAt(this.chest.position);
     });
 
+    dropAnim.onComplete(() => {
+      this.playAudio("chest-impact");
+    });
+
     dropAnim.start();
   }
 
@@ -150,6 +176,39 @@ export class GameState {
     this.camera.near = 0.1;
     this.camera.position.set(0, 2.65, 6);
     this.camera.lookAt(-0.1, 1.45, -0.1);
+  }
+
+  private setupAudio() {
+    const audioBuffers = this.assetManager.audioBuffers;
+
+    const chestImpactSound = new THREE.Audio(this.audioListener);
+    chestImpactSound.setBuffer(audioBuffers.get("chest-impact"));
+    this.soundMap.set("chest-impact", chestImpactSound);
+
+    const chestOpenSound = new THREE.Audio(this.audioListener);
+    chestOpenSound.setBuffer(audioBuffers.get("chest-open"));
+    this.soundMap.set("chest-open", chestOpenSound);
+
+    const bottleSound = new THREE.Audio(this.audioListener);
+    bottleSound.setBuffer(audioBuffers.get("pick-up-potion"));
+    this.soundMap.set("pick-up-potion", bottleSound);
+
+    const shieldSound = new THREE.Audio(this.audioListener);
+    shieldSound.setBuffer(audioBuffers.get("pick-up-shield"));
+    this.soundMap.set("pick-up-shield", shieldSound);
+
+    const goldSound = new THREE.Audio(this.audioListener);
+    goldSound.setBuffer(audioBuffers.get("pick-up-gold"));
+    this.soundMap.set("pick-up-gold", goldSound);
+
+    const weaponSound = new THREE.Audio(this.audioListener);
+    weaponSound.setBuffer(audioBuffers.get("pick-up-weapon"));
+    this.soundMap.set("pick-up-weapon", weaponSound);
+  }
+
+  private playAudio(name: string) {
+    const sound = this.soundMap.get(name);
+    sound?.stop().play();
   }
 
   private setupLights() {
@@ -185,12 +244,12 @@ export class GameState {
     if (this.currentChest) {
       const elapsed = this.clock.getElapsedTime();
 
-      this.currentChest.lootObjects.forEach((object) => {
+      this.currentChest.lootItems.forEach((lootItem) => {
         // Rotate the object
-        object.rotation.y += dt * 0.5;
+        lootItem.object.rotation.y += dt * 0.5;
 
         // Bob up and down
-        object.position.y += Math.sin(elapsed) * 0.001;
+        lootItem.object.position.y += Math.sin(elapsed) * 0.001;
       });
     }
 
@@ -224,10 +283,10 @@ export class GameState {
     }
 
     // Otherwise, raycast against remaining loot objects
-    if (this.currentChest.lootObjects.length) {
-      const intersects = this.raycaster.intersectObjects(
-        this.currentChest.lootObjects
-      );
+    if (this.currentChest.lootItems.length) {
+      const objects = this.currentChest.lootItems.map((item) => item.object);
+
+      const intersects = this.raycaster.intersectObjects(objects);
       if (intersects.length) {
         const objectHit = intersects[0].object;
         this.renderPipeline.outlineObject(objectHit);
@@ -250,10 +309,10 @@ export class GameState {
     }
 
     // Determine if clicking on a loot object
-    for (const [index, object] of this.currentChest.lootObjects.entries()) {
-      const intersects = this.raycaster.intersectObject(object);
+    for (const [index, lootItem] of this.currentChest.lootItems.entries()) {
+      const intersects = this.raycaster.intersectObject(lootItem.object);
       if (intersects.length) {
-        this.pickupLootObject(object, index);
+        this.pickupLootItem(lootItem, index);
 
         return;
       }
@@ -265,32 +324,68 @@ export class GameState {
     this.chestLid.rotation.x = 0;
 
     // Remove any remaining loot objects
-    this.currentChest?.lootObjects.forEach((object) => {
-      this.scene.remove(object);
+    this.currentChest?.lootItems.forEach((lootItem) => {
+      this.scene.remove(lootItem.object);
     });
 
     this.currentChest = undefined;
   }
 
   private generateRandomChest(): Chest {
-    const rarities = Object.values(Rarity);
-    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-
-    // Pick 3 random loot objects
-    const lootObjects: THREE.Object3D[] = [];
-    const lootNames = [...this.assetManager.lootNames];
+    // First pick 3 loot items of random loot types
+    const lootTypes = [
+      LootType.GOLD,
+      LootType.POTION,
+      LootType.SHIELD,
+      LootType.WEAPON,
+    ];
+    const randomTypes: LootType[] = [];
     for (let i = 0; i < 3; i++) {
-      const rnd = Math.floor(Math.random() * lootNames.length);
-      const object = this.assetManager.models.get(lootNames[rnd]);
-      this.assetManager.applyModelTexture(object, "d1-atlas");
-      lootObjects.push(object);
-      lootNames.splice(rnd, 1);
+      randomTypes.push(lootTypes[Math.floor(Math.random() * lootTypes.length)]);
     }
 
+    const { lootMap, models } = this.assetManager;
+    const rarities = Object.values(Rarity);
+
+    // Then create the items each with a random rarity
+    const lootItems: LootItem[] = randomTypes.map((type) => {
+      // Random object of this type
+      const names = lootMap.get(type) ?? ["coins"];
+      const name = names[Math.floor(Math.random() * names.length)];
+      const object = models.get(name).clone();
+
+      // Random texture (except gold!)
+      const textureName =
+        type === LootType.GOLD
+          ? "d1-atlas"
+          : `d${THREE.MathUtils.randInt(1, 4)}-atlas`;
+      this.assetManager.applyModelTexture(object, textureName);
+
+      // Random rarity
+      const rarity = rarities[Math.floor(Math.random() * rarities.length)];
+
+      return {
+        object,
+        rarity,
+        type,
+      };
+    });
+
+    // The chest rarity is that of the rarest loot item
+    let highestRarityIndex = 0;
+    lootItems.forEach((item) => {
+      const index = rarities.findIndex((rarity) => item.rarity === rarity);
+      if (index > highestRarityIndex) {
+        highestRarityIndex = index;
+      }
+    });
+
+    const chestRarity = rarities[highestRarityIndex];
+
     return {
+      lootItems,
+      rarity: chestRarity,
       opened: false,
-      rarity,
-      lootObjects,
     };
   }
 
@@ -307,28 +402,30 @@ export class GameState {
     const openAnim = chestOpenAnim(this.chestLid, openDuration);
 
     // Get the loot reveal anims
-    const lootObjects = this.currentChest.lootObjects;
+    const lootObjects = this.currentChest.lootItems;
     const lootRevealAnims = this.getLootRevealAnims(
-      lootObjects[0],
-      lootObjects[1],
-      lootObjects[2]
+      lootObjects[0].object,
+      lootObjects[1].object,
+      lootObjects[2].object
     );
 
     // Loot starts at scale 0, then scales up as it's revealed
-    lootObjects.forEach((object) => object.scale.set(0, 0, 0));
+    lootObjects.forEach((item) => item.object.scale.set(0, 0, 0));
     const lootScaleAnims = this.getLootScaleAnims(
-      lootObjects[0],
-      lootObjects[1],
-      lootObjects[2]
+      lootObjects[0].object,
+      lootObjects[1].object,
+      lootObjects[2].object
     );
 
     // Add the loot to the scene
-    this.currentChest.lootObjects.forEach((object) => this.scene.add(object));
+    this.currentChest.lootItems.forEach((item) => this.scene.add(item.object));
 
     // Start all the anims
     openAnim.start();
     lootRevealAnims.forEach((tween) => tween.start());
     lootScaleAnims.forEach((tween) => tween.start());
+
+    this.playAudio("chest-open");
   }
 
   private getLootRevealAnims(
@@ -388,10 +485,26 @@ export class GameState {
     return [leftAnim, midAnim, rightAnim];
   }
 
-  private pickupLootObject(object: THREE.Object3D, index: number) {
+  private pickupLootItem(item: LootItem, index: number) {
+    // Play sfx for this type of object
+    switch (item.type) {
+      case LootType.GOLD:
+        this.playAudio("pick-up-gold");
+        break;
+      case LootType.POTION:
+        this.playAudio("pick-up-potion");
+        break;
+      case LootType.SHIELD:
+        this.playAudio("pick-up-shield");
+        break;
+      case LootType.WEAPON:
+        this.playAudio("pick-up-weapon");
+        break;
+    }
+
     // Remove the object
-    this.scene.remove(object);
-    this.currentChest?.lootObjects.splice(index, 1);
+    this.scene.remove(item.object);
+    this.currentChest?.lootItems.splice(index, 1);
   }
 }
 
