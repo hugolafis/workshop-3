@@ -4,6 +4,7 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 
 import { RenderPipeline } from "./render-pipeline";
 import { AssetManager } from "./asset-manager";
+import { LightCylinder } from "./shaders/LightCylinder";
 
 /**
  * Flow:
@@ -85,8 +86,8 @@ export class GameState {
 
     // Scene
     this.setupLights();
-    this.scene.background = new THREE.Color("#262626");
-    this.scene.fog = new THREE.Fog(0xcccccc, 8, 15);
+    this.scene.background = new THREE.Color(0x050505);
+    this.scene.fog = new THREE.Fog(0x050505, 2, 18);
 
     // Object setup
     const level = assetManager.models.get("level");
@@ -149,9 +150,9 @@ export class GameState {
     this.chest.position.y = this.chestDropHeight;
     const dropAnim = chestDropAnim(this.chest, this.chestPedestalPosition);
 
-    dropAnim.onUpdate(() => {
-      this.camera.lookAt(this.chest.position);
-    });
+    // dropAnim.onUpdate(() => {
+    //   this.camera.lookAt(this.chest.position);
+    // });
 
     dropAnim.onComplete(() => {
       this.playAudio("chest-impact");
@@ -161,11 +162,11 @@ export class GameState {
   }
 
   private setupCamera() {
-    this.camera.fov = 50;
+    this.camera.fov = 30;
     this.camera.far = 500;
     this.camera.near = 0.1;
-    this.camera.position.set(0, 2.65, 6);
-    this.camera.lookAt(-0.1, 1.45, -0.1);
+    this.camera.position.set(-1, 2.0, 7); // lazy hack
+    this.camera.lookAt(-0.1, 1.2, -0.1);
   }
 
   private setupAudio() {
@@ -202,18 +203,21 @@ export class GameState {
   }
 
   private setupLights() {
-    const ambientLight = new THREE.AmbientLight(undefined, 0.15);
+    const ambientLight = new THREE.AmbientLight(undefined, 0.05);
     this.scene.add(ambientLight);
 
     const directLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directLight.castShadow = true;
     directLight.position.copy(new THREE.Vector3(0.75, 1, 0.75).normalize());
     this.scene.add(directLight);
 
     const flameColour = new THREE.Color("#f59002").convertSRGBToLinear();
     const flameLeft = new THREE.PointLight(flameColour, 5, 5);
+    flameLeft.castShadow = true;
     flameLeft.position.set(-1.62, 3.2, -2.35);
 
     const flameRight = new THREE.PointLight(flameColour, 5, 5);
+    flameRight.castShadow = true;
     flameRight.position.set(1.62, 3.2, -2.35);
 
     this.scene.add(flameLeft, flameRight);
@@ -408,9 +412,19 @@ export class GameState {
     // Add the loot to the scene
     this.currentChest.lootItems.forEach((item) => this.scene.add(item.object));
 
+    // Add some cylindrical lights
+    const lightAnims = this.getLootLightAnimations(
+      lootObjects[0],
+      lootObjects[1],
+      lootObjects[2]
+    );
+
     // Start all the anims
     openAnim.start();
-    lootRevealAnims.forEach((tween) => tween.start());
+    lootRevealAnims.forEach((tween, index) =>
+      //tween.chain(lightAnims[index]).start()
+      tween.start()
+    );
     lootScaleAnims.forEach((tween) => tween.start());
 
     this.playAudio("chest-open");
@@ -494,6 +508,65 @@ export class GameState {
     this.scene.remove(item.object);
     this.currentChest?.lootItems.splice(index, 1);
   }
+
+  private getLootLightAnimations(
+    leftObject: LootItem,
+    middleObject: LootItem,
+    rightObject: LootItem
+  ): TWEEN.Tween<THREE.Object3D>[] {
+    // Left
+    const leftLightMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.33,
+        0.33,
+        1,
+        undefined,
+        undefined,
+        true
+      ).translate(0, 0.5, 0),
+      new LightCylinder({ color: new THREE.Color(leftObject.rarity) })
+    );
+    //leftLightMesh.scale.set(0, 1, 0);
+    leftLightMesh.position.copy(this.lootPosLeft);
+    const leftAnimation = scaleAnim(leftLightMesh, 5);
+
+    // Middle
+    const middleLightMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.33,
+        0.33,
+        1,
+        undefined,
+        undefined,
+        true
+      ).translate(0, 0.5, 0),
+      new LightCylinder({ color: new THREE.Color(middleObject.rarity) })
+    );
+    //middleLightMesh.scale.set(0, 1, 0);
+    middleLightMesh.position.copy(this.lootPosMid);
+    const middleAnimation = scaleAnim(leftLightMesh, 5);
+
+    // Right
+    const rightLightMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.33,
+        0.33,
+        1,
+        undefined,
+        undefined,
+        true
+      ).translate(0, 0.5, 0),
+      new LightCylinder({ color: new THREE.Color(rightObject.rarity) })
+    );
+    //rightLightMesh.scale.set(0, 1, 0);
+    rightLightMesh.position.copy(this.lootPosRight);
+    const rightAnimation = scaleAnim(leftLightMesh, 5);
+
+    // Add them to the objects
+    this.scene.add(leftLightMesh, middleLightMesh, rightLightMesh); // todo figure out how to clean up these refs
+
+    return [leftAnimation, middleAnimation, rightAnimation];
+  }
 }
 
 function chestDropAnim(chest: THREE.Object3D, to: THREE.Vector3) {
@@ -502,9 +575,9 @@ function chestDropAnim(chest: THREE.Object3D, to: THREE.Vector3) {
       {
         position: { y: to.y },
       },
-      350
+      750
     )
-    .easing(TWEEN.Easing.Circular.In);
+    .easing(TWEEN.Easing.Bounce.Out);
 
   return tween;
 }

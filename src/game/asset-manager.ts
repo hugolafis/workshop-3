@@ -45,7 +45,15 @@ export class AssetManager {
     // level
 
     const levelUrl = new URL("/models/lootBoxScene.glb", import.meta.url).href;
-    gltfLoader.load(levelUrl, (gltf) => this.models.set("level", gltf.scene));
+    gltfLoader.load(levelUrl, (gltf) => {
+      gltf.scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        }
+      });
+      this.models.set("level", gltf.scene);
+    });
 
     // chest body
 
@@ -55,6 +63,7 @@ export class AssetManager {
       group.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.material = new THREE.MeshStandardMaterial();
+          child.castShadow = true;
         }
       });
 
@@ -69,6 +78,7 @@ export class AssetManager {
       group.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.material = new THREE.MeshStandardMaterial();
+          child.castShadow = true;
         }
       });
       this.models.set("chest-lid", group);

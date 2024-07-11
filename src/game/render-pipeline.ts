@@ -24,6 +24,7 @@ export class RenderPipeline {
     this.renderer.toneMapping = THREE.LinearToneMapping;
     this.renderer.toneMappingExposure = 1;
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     // Add canvas to dom
     const canvas = this.canvas;
