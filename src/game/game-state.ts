@@ -1,13 +1,9 @@
 import * as TWEEN from "@tweenjs/tween.js";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { RectAreaLightHelper } from "three/examples/jsm/helpers/RectAreaLightHelper";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib";
 
 import { RenderPipeline } from "./render-pipeline";
 import { AssetManager } from "./asset-manager";
-import { observable } from "mobx";
-import { addGui } from "../utils/utils";
 
 /**
  * Flow:
@@ -58,7 +54,6 @@ export class GameState {
 
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera();
-  //private controls: OrbitControls;
 
   private chest: THREE.Object3D;
   private chestLid: THREE.Object3D;
@@ -128,11 +123,6 @@ export class GameState {
     // Listeners
     window.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("mousedown", this.onMouseClick);
-
-    // Orbit controls while testing
-    // this.controls = new OrbitControls(this.camera, this.renderPipeline.canvas);
-    // this.controls.enableDamping = true;
-    // this.controls.target.set(0, 1, 0);
 
     // Start game
     this.update();
@@ -236,8 +226,6 @@ export class GameState {
     requestAnimationFrame(this.update);
 
     const dt = this.clock.getDelta();
-
-    //this.controls.update();
 
     TWEEN.update();
 
